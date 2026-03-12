@@ -6,37 +6,11 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import LoginPage from "@/pages/login";
 import { useAuth } from "@/context/auth-context";
+import DocumentsPage from "@/pages/documents";
+import SearchPage from "@/pages/search";
+import SyncDashboard from "@/pages/sync-dashboard";
 
 // Placeholder pages
-function DocumentsPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Documents</h1>
-      <p className="text-muted-foreground mt-2">
-        Browse and manage documents.
-      </p>
-    </div>
-  );
-}
-
-function SearchPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Search</h1>
-      <p className="text-muted-foreground mt-2">Search documents.</p>
-    </div>
-  );
-}
-
-function SyncPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Sync Status</h1>
-      <p className="text-muted-foreground mt-2">Monitor sync operations.</p>
-    </div>
-  );
-}
-
 function SettingsPage() {
   return (
     <div>
@@ -83,7 +57,7 @@ const searchRoute = createRoute({
 const syncRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/sync",
-  component: SyncPage,
+  component: SyncDashboard,
 });
 
 const settingsRoute = createRoute({
