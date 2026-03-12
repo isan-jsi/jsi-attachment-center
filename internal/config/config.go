@@ -16,6 +16,13 @@ type Config struct {
 	Reconciliation ReconciliationConfig
 	API            APIConfig
 	Log            LogConfig
+	NATS           NATSConfig
+}
+
+type NATSConfig struct {
+	URL        string
+	StreamName string
+	Subjects   []string
 }
 
 type APIConfig struct {
@@ -123,6 +130,11 @@ func Load() (*Config, error) {
 		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
+		},
+		NATS: NATSConfig{
+			URL:        getEnv("NATS_URL", "nats://localhost:4222"),
+			StreamName: getEnv("NATS_STREAM", "IBSDOCS"),
+			Subjects:   []string{"document.>", "sync.>"},
 		},
 	}
 
