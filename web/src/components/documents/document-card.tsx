@@ -42,7 +42,7 @@ export function DocumentCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-accent cursor-pointer",
+        "group relative flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors hover:bg-accent cursor-pointer touch-manipulation",
         selected && "border-primary bg-accent"
       )}
       onClick={onClick}

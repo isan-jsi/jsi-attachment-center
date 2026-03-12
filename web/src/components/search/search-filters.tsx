@@ -10,6 +10,9 @@ interface SearchFiltersProps {
   onDocumentTypeChange: (type?: string) => void;
 }
 
+const selectClass =
+  "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 touch-manipulation sm:w-auto";
+
 export function SearchFilters({
   folderId,
   onFolderChange,
@@ -22,14 +25,14 @@ export function SearchFilters({
   const { data: owners } = useOwners();
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
       {/* Folder filter */}
       <select
         value={folderId ?? ""}
         onChange={(e) =>
           onFolderChange(e.target.value ? Number(e.target.value) : undefined)
         }
-        className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        className={selectClass}
       >
         <option value="">All Folders</option>
         {folders?.map((f) => (
@@ -42,10 +45,8 @@ export function SearchFilters({
       {/* Owner filter */}
       <select
         value={ownerClass ?? ""}
-        onChange={(e) =>
-          onOwnerChange(e.target.value || undefined)
-        }
-        className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        onChange={(e) => onOwnerChange(e.target.value || undefined)}
+        className={selectClass}
       >
         <option value="">All Owners</option>
         {owners?.map((o) => (
@@ -61,10 +62,8 @@ export function SearchFilters({
       {/* Document type filter */}
       <select
         value={documentType ?? ""}
-        onChange={(e) =>
-          onDocumentTypeChange(e.target.value || undefined)
-        }
-        className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        onChange={(e) => onDocumentTypeChange(e.target.value || undefined)}
+        className={selectClass}
       >
         <option value="">All Types</option>
         <option value="application/pdf">PDF</option>

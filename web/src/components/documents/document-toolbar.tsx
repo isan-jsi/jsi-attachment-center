@@ -29,13 +29,13 @@ export function DocumentToolbar({
   isDeleting,
 }: DocumentToolbarProps) {
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      {/* View mode toggle */}
-      <div className="flex items-center rounded-md border border-input">
+    <div className="flex flex-wrap items-center gap-2">
+      {/* View mode toggle — hidden on mobile since we always show grid there */}
+      <div className="hidden md:flex items-center rounded-md border border-input">
         <Button
           variant={viewMode === "grid" ? "secondary" : "ghost"}
           size="sm"
-          className="rounded-r-none"
+          className="rounded-r-none touch-manipulation"
           onClick={() => onViewModeChange("grid")}
         >
           <LayoutGrid className="h-4 w-4" />
@@ -43,7 +43,7 @@ export function DocumentToolbar({
         <Button
           variant={viewMode === "list" ? "secondary" : "ghost"}
           size="sm"
-          className="rounded-l-none"
+          className="rounded-l-none touch-manipulation"
           onClick={() => onViewModeChange("list")}
         >
           <List className="h-4 w-4" />
@@ -54,7 +54,7 @@ export function DocumentToolbar({
       <select
         value={sortBy}
         onChange={(e) => onSortChange(e.target.value)}
-        className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 touch-manipulation"
       >
         <option value="file_name">Name</option>
         <option value="created_at">Date Created</option>
@@ -67,6 +67,7 @@ export function DocumentToolbar({
         variant="outline"
         size="sm"
         onClick={() => onSortDirChange(sortDir === "asc" ? "desc" : "asc")}
+        className="touch-manipulation"
       >
         {sortDir === "asc" ? "A-Z" : "Z-A"}
       </Button>
@@ -80,6 +81,7 @@ export function DocumentToolbar({
           size="sm"
           onClick={onBulkDelete}
           disabled={isDeleting}
+          className="touch-manipulation"
         >
           <Trash2 className="mr-2 h-4 w-4" />
           Delete {selectedCount}
@@ -87,7 +89,7 @@ export function DocumentToolbar({
       )}
 
       {/* Upload */}
-      <Button size="sm" onClick={onUpload}>
+      <Button size="sm" onClick={onUpload} className="touch-manipulation">
         <Upload className="mr-2 h-4 w-4" />
         Upload
       </Button>

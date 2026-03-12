@@ -30,8 +30,8 @@ export function DocumentRow({
   return (
     <tr
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 cursor-pointer",
-        selected && "bg-accent"
+        "border-b transition-colors hover:bg-muted/50 cursor-pointer touch-manipulation",
+        selected && "bg-accent",
       )}
       onClick={onClick}
     >
@@ -50,16 +50,20 @@ export function DocumentRow({
           </span>
         </div>
       </td>
-      <td className="px-3 py-2 text-sm text-muted-foreground">
+      {/* Content Type — hidden on mobile */}
+      <td className="hidden md:table-cell px-3 py-2 text-sm text-muted-foreground">
         {document.document_type}
       </td>
-      <td className="px-3 py-2 text-sm text-muted-foreground">
+      {/* Size — hidden on mobile and tablet */}
+      <td className="hidden lg:table-cell px-3 py-2 text-sm text-muted-foreground">
         {formatBytes(document.file_size)}
       </td>
-      <td className="px-3 py-2 text-sm text-muted-foreground">
+      {/* Owner — hidden on mobile */}
+      <td className="hidden md:table-cell px-3 py-2 text-sm text-muted-foreground">
         {document.owner_class_name}
       </td>
-      <td className="px-3 py-2 text-sm text-muted-foreground">
+      {/* Created — hidden on smallest screens */}
+      <td className="hidden sm:table-cell px-3 py-2 text-sm text-muted-foreground">
         {formatDate(document.created_at)}
       </td>
     </tr>

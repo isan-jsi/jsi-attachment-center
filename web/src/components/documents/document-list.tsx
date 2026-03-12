@@ -20,17 +20,22 @@ function SortHeader({
   sortBy,
   sortDir,
   onSort,
+  className,
 }: {
   label: string;
   column: string;
   sortBy: string;
   sortDir: "asc" | "desc";
   onSort: (col: string) => void;
+  className?: string;
 }) {
   const isActive = sortBy === column;
   return (
     <th
-      className="cursor-pointer px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:text-foreground"
+      className={cn(
+        "cursor-pointer px-3 py-2 text-left text-sm font-medium text-muted-foreground hover:text-foreground touch-manipulation",
+        className,
+      )}
       onClick={() => onSort(column)}
     >
       <span className="inline-flex items-center gap-1">
@@ -83,26 +88,32 @@ export function DocumentList({
               sortDir={sortDir}
               onSort={onSort}
             />
+            {/* Content Type hidden on mobile */}
             <SortHeader
               label="Type"
               column="document_type"
               sortBy={sortBy}
               sortDir={sortDir}
               onSort={onSort}
+              className="hidden md:table-cell"
             />
+            {/* Size hidden on mobile */}
             <SortHeader
               label="Size"
               column="file_size"
               sortBy={sortBy}
               sortDir={sortDir}
               onSort={onSort}
+              className="hidden lg:table-cell"
             />
+            {/* Owner hidden on mobile */}
             <SortHeader
               label="Owner"
               column="owner_class_name"
               sortBy={sortBy}
               sortDir={sortDir}
               onSort={onSort}
+              className="hidden md:table-cell"
             />
             <SortHeader
               label="Created"
@@ -110,6 +121,7 @@ export function DocumentList({
               sortBy={sortBy}
               sortDir={sortDir}
               onSort={onSort}
+              className="hidden sm:table-cell"
             />
           </tr>
         </thead>

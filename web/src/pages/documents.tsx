@@ -167,24 +167,41 @@ export default function DocumentsPage() {
         <div className="flex items-center justify-center py-16">
           <p className="text-muted-foreground">Loading documents...</p>
         </div>
-      ) : viewMode === "grid" ? (
-        <DocumentGrid
-          documents={documents}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onPreview={handlePreview}
-        />
       ) : (
-        <DocumentList
-          documents={documents}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onSelectAll={handleSelectAll}
-          onPreview={handlePreview}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          onSort={handleSort}
-        />
+        <>
+          {/* Mobile: always show grid/card layout */}
+          <div className="md:hidden">
+            <DocumentGrid
+              documents={documents}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onPreview={handlePreview}
+            />
+          </div>
+
+          {/* Desktop: respect the user's chosen view mode */}
+          <div className="hidden md:block">
+            {viewMode === "grid" ? (
+              <DocumentGrid
+                documents={documents}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onPreview={handlePreview}
+              />
+            ) : (
+              <DocumentList
+                documents={documents}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                onSelectAll={handleSelectAll}
+                onPreview={handlePreview}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSort={handleSort}
+              />
+            )}
+          </div>
+        </>
       )}
 
       {/* Pagination */}

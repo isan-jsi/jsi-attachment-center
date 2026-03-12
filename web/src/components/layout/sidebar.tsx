@@ -16,12 +16,48 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const navItems = [
+export const navItems = [
   { to: "/documents", label: "Documents", icon: FileText },
   { to: "/search", label: "Search", icon: Search },
   { to: "/sync", label: "Sync Status", icon: RefreshCw },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
+
+/** Reusable nav content used in both the desktop sidebar and mobile Sheet drawer. */
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const matchRoute = useMatchRoute();
+
+  return (
+    <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+      {navItems.map(({ to, label, icon: Icon }) => {
+        const isActive = matchRoute({ to, fuzzy: true });
+        return (
+          <Link
+            key={to}
+            to={to}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors touch-manipulation",
+              isActive
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent/50",
+            )}
+          >
+            <Icon size={18} />
+            <span>{label}</span>
+          </Link>
+        );
+      })}
+
+      <div className="mt-4 border-t pt-4">
+        <p className="mb-2 px-3 text-xs font-medium uppercase text-muted-foreground">
+          Folders
+        </p>
+        <FolderTreeComponent />
+      </div>
+    </nav>
+  );
+}
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const matchRoute = useMatchRoute();
@@ -29,7 +65,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r bg-card transition-all duration-200",
+        "hidden md:flex h-full flex-col border-r bg-card transition-all duration-200",
         collapsed ? "w-14" : "w-64",
       )}
     >
@@ -37,7 +73,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {!collapsed && (
           <span className="text-sm font-semibold">IBS Doc Engine</span>
         )}
-        <Button variant="ghost" size="icon" onClick={onToggle}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggle}
+          className="touch-manipulation"
+        >
           {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
         </Button>
       </div>
@@ -50,7 +91,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               key={to}
               to={to}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors touch-manipulation",
                 isActive
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-accent/50",
