@@ -1,6 +1,7 @@
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Breadcrumbs } from "./breadcrumbs";
 
 export function Header() {
@@ -9,10 +10,13 @@ export function Header() {
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card px-4">
       <Breadcrumbs />
-      <Button variant="ghost" size="sm" onClick={logout}>
-        <LogOut size={16} className="mr-2" />
-        Sign out
-      </Button>
+      <div className="flex items-center gap-1">
+        <ThemeToggle />
+        <Button variant="ghost" size="sm" onClick={logout}>
+          <LogOut size={16} className="mr-2" />
+          Sign out
+        </Button>
+      </div>
     </header>
   );
 }
