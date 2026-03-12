@@ -17,8 +17,7 @@ func RequirePermission(required string) func(http.Handler) http.Handler {
 			}
 
 			if !hasPermission(user.Permissions, required) {
-				jsonError(w, http.StatusForbidden, "FORBIDDEN",
-					"insufficient permissions: requires "+required)
+				jsonError(w, http.StatusForbidden, "FORBIDDEN", "you do not have permission to perform this action")
 				return
 			}
 
@@ -44,8 +43,7 @@ func RequireAnyPermission(perms ...string) func(http.Handler) http.Handler {
 				}
 			}
 
-			jsonError(w, http.StatusForbidden, "FORBIDDEN",
-				"insufficient permissions: requires one of "+strings.Join(perms, ", "))
+			jsonError(w, http.StatusForbidden, "FORBIDDEN", "you do not have permission to perform this action")
 		})
 	}
 }

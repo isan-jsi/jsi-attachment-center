@@ -1,11 +1,19 @@
 package domain
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// HashAPIKey returns the SHA-256 hex digest of a raw API key.
+func HashAPIKey(raw string) string {
+	h := sha256.Sum256([]byte(raw))
+	return fmt.Sprintf("%x", h)
+}
 
 type APIKey struct {
 	ID          uuid.UUID

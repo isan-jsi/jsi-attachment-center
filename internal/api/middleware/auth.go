@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -17,16 +16,19 @@ import (
 	"github.com/jsi/ibs-doc-engine/internal/domain"
 )
 
+type errorEnvelope struct {
+	Error *errorBody `json:"error,omitempty"`
+}
+type errorBody struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 // jsonError writes a JSON error response without importing the api package (to avoid cycles).
 func jsonError(w http.ResponseWriter, status int, code, message string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"error": map[string]string{
-			"code":    code,
-			"message": message,
-		},
-	})
+	json.NewEncoder(w).Encode(errorEnvelope{Error: &errorBody{Code: code, Message: message}})
 }
 
 // AuthUser represents the authenticated identity stored in context.
@@ -137,14 +139,8 @@ func validateJWT(tokenStr string, pubKey *rsa.PublicKey) (*AuthUser, error) {
 	}, nil
 }
 
-// hashKey computes the SHA-256 hex digest of a raw API key.
-func hashKey(raw string) string {
-	h := sha256.Sum256([]byte(raw))
-	return fmt.Sprintf("%x", h)
-}
-
 func validateAPIKey(ctx context.Context, raw string, repo APIKeyQuerier) (*AuthUser, error) {
-	hash := hashKey(raw)
+	hash := domain.HashAPIKey(raw)
 	key, err := repo.GetByHash(ctx, hash)
 	if err != nil {
 		return nil, err

@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -20,8 +19,7 @@ func NewAPIKeyRepo(pool *pgxpool.Pool) *APIKeyRepo {
 
 // HashKey returns the SHA-256 hex digest of a raw API key.
 func HashKey(raw string) string {
-	h := sha256.Sum256([]byte(raw))
-	return fmt.Sprintf("%x", h)
+	return domain.HashAPIKey(raw)
 }
 
 // GetByHash looks up an active (non-revoked) API key by its hash.
