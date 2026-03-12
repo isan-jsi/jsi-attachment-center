@@ -3,16 +3,18 @@ package middleware
 import (
 	"context"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/jsi/ibs-doc-engine/internal/postgres"
+	"github.com/jsi/ibs-doc-engine/internal/domain"
 )
 
 // jsonError writes a JSON error response without importing the api package (to avoid cycles).
@@ -44,10 +46,15 @@ func GetAuthUser(ctx context.Context) *AuthUser {
 	return nil
 }
 
+// APIKeyQuerier abstracts API key lookups for testability.
+type APIKeyQuerier interface {
+	GetByHash(ctx context.Context, keyHash string) (*domain.APIKey, error)
+}
+
 // AuthConfig configures the dual auth middleware.
 type AuthConfig struct {
 	JWTPublicKeyPEM string // path to PEM file or raw PEM string
-	APIKeyRepo      *postgres.APIKeyRepo
+	APIKeyRepo      APIKeyQuerier
 }
 
 // Auth returns middleware that validates JWT Bearer tokens or X-API-Key headers.
@@ -130,8 +137,14 @@ func validateJWT(tokenStr string, pubKey *rsa.PublicKey) (*AuthUser, error) {
 	}, nil
 }
 
-func validateAPIKey(ctx context.Context, raw string, repo *postgres.APIKeyRepo) (*AuthUser, error) {
-	hash := postgres.HashKey(raw)
+// hashKey computes the SHA-256 hex digest of a raw API key.
+func hashKey(raw string) string {
+	h := sha256.Sum256([]byte(raw))
+	return fmt.Sprintf("%x", h)
+}
+
+func validateAPIKey(ctx context.Context, raw string, repo APIKeyQuerier) (*AuthUser, error) {
+	hash := hashKey(raw)
 	key, err := repo.GetByHash(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -142,7 +155,9 @@ func validateAPIKey(ctx context.Context, raw string, repo *postgres.APIKeyRepo) 
 
 	var perms []string
 	if len(key.Permissions) > 0 {
-		json.Unmarshal(key.Permissions, &perms)
+		if err := json.Unmarshal(key.Permissions, &perms); err != nil {
+			slog.Warn("auth: failed to parse API key permissions", "key_name", key.Name, "error", err)
+		}
 	}
 
 	return &AuthUser{
