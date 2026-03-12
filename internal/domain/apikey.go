@@ -18,10 +18,14 @@ func HashAPIKey(raw string) string {
 type APIKey struct {
 	ID          uuid.UUID
 	KeyHash     string
+	KeyPrefix   string
 	Name        string
+	OwnerID     string
 	Permissions json.RawMessage // ["documents:read","documents:write",...]
 	CreatedAt   time.Time
+	UpdatedAt   time.Time
 	ExpiresAt   *time.Time
+	LastUsedAt  *time.Time
 	RevokedAt   *time.Time
 }
 

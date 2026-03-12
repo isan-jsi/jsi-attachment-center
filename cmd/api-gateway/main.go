@@ -80,6 +80,7 @@ func run() error {
 	searchHandler := handlers.NewSearchHandler(docRepo)
 	ownerHandler := handlers.NewOwnerHandler(docRepo)
 	syncHandler := handlers.NewSyncHandler(syncRepo)
+	apiKeyHandler := handlers.NewAPIKeyHandler(apiKeyRepo)
 
 	// Router
 	var corsOrigins []string
@@ -105,6 +106,7 @@ func run() error {
 		sub.Mount("/search", searchHandler.Routes())
 		sub.Mount("/owners", ownerHandler.Routes())
 		sub.Mount("/sync", syncHandler.Routes())
+		sub.Mount("/api-keys", apiKeyHandler.Routes())
 	})
 
 	// Start server
