@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -239,4 +240,122 @@ func (r *DocumentRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("document repo: soft delete: not found")
 	}
 	return nil
+}
+
+// SearchParams defines full-text search filters.
+type SearchParams struct {
+	Query       string
+	OwnerClass  string
+	ContentType string
+	DateFrom    *time.Time
+	DateTo      *time.Time
+	Page        int
+	PerPage     int
+}
+
+func (r *DocumentRepo) Search(ctx context.Context, params SearchParams) ([]domain.Document, int64, error) {
+	where := "deleted_at IS NULL"
+	args := []interface{}{}
+	argIdx := 1
+
+	if params.Query != "" {
+		where += fmt.Sprintf(" AND (filename ILIKE '%%' || $%d || '%%')", argIdx)
+		args = append(args, params.Query)
+		argIdx++
+	}
+	if params.OwnerClass != "" {
+		where += fmt.Sprintf(" AND owner_class_name = $%d", argIdx)
+		args = append(args, params.OwnerClass)
+		argIdx++
+	}
+	if params.ContentType != "" {
+		where += fmt.Sprintf(" AND content_type = $%d", argIdx)
+		args = append(args, params.ContentType)
+		argIdx++
+	}
+	if params.DateFrom != nil {
+		where += fmt.Sprintf(" AND created_at >= $%d", argIdx)
+		args = append(args, *params.DateFrom)
+		argIdx++
+	}
+	if params.DateTo != nil {
+		where += fmt.Sprintf(" AND created_at <= $%d", argIdx)
+		args = append(args, *params.DateTo)
+		argIdx++
+	}
+
+	var total int64
+	countQuery := "SELECT COUNT(*) FROM documents WHERE " + where
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("document repo: search count: %w", err)
+	}
+
+	if params.PerPage <= 0 {
+		params.PerPage = 20
+	}
+	if params.Page < 1 {
+		params.Page = 1
+	}
+	offset := (params.Page - 1) * params.PerPage
+
+	listQuery := fmt.Sprintf(`SELECT
+		id, minio_bucket, minio_key, filename, content_type, file_size, sha256_hash,
+		owner_id, owner_class_library, owner_class_name,
+		attachment_type_id, attachment_type, is_external, legacy_file_id,
+		current_version, created_by, created_at, updated_at, deleted_at
+	FROM documents WHERE %s
+	ORDER BY created_at DESC
+	LIMIT $%d OFFSET $%d`, where, argIdx, argIdx+1)
+	args = append(args, params.PerPage, offset)
+
+	rows, err := r.pool.Query(ctx, listQuery, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("document repo: search: %w", err)
+	}
+	defer rows.Close()
+
+	var docs []domain.Document
+	for rows.Next() {
+		var doc domain.Document
+		if err := rows.Scan(
+			&doc.ID, &doc.MinioBucket, &doc.MinioKey, &doc.Filename, &doc.ContentType, &doc.FileSize, &doc.SHA256Hash,
+			&doc.OwnerID, &doc.OwnerClassLibrary, &doc.OwnerClassName,
+			&doc.AttachmentTypeID, &doc.AttachmentType, &doc.IsExternal, &doc.LegacyFileID,
+			&doc.CurrentVersion, &doc.CreatedBy, &doc.CreatedAt, &doc.UpdatedAt, &doc.DeletedAt,
+		); err != nil {
+			return nil, 0, fmt.Errorf("document repo: search scan: %w", err)
+		}
+		docs = append(docs, doc)
+	}
+	return docs, total, rows.Err()
+}
+
+// OwnerClass represents a distinct owner class in the documents table.
+type OwnerClass struct {
+	OwnerClassLibrary string `json:"owner_class_library"`
+	OwnerClassName    string `json:"owner_class_name"`
+	DocumentCount     int64  `json:"document_count"`
+}
+
+func (r *DocumentRepo) ListOwnerClasses(ctx context.Context) ([]OwnerClass, error) {
+	query := `SELECT owner_class_library, owner_class_name, COUNT(*) as doc_count
+		FROM documents WHERE deleted_at IS NULL
+		GROUP BY owner_class_library, owner_class_name
+		ORDER BY owner_class_name`
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("document repo: list owner classes: %w", err)
+	}
+	defer rows.Close()
+
+	var classes []OwnerClass
+	for rows.Next() {
+		var oc OwnerClass
+		if err := rows.Scan(&oc.OwnerClassLibrary, &oc.OwnerClassName, &oc.DocumentCount); err != nil {
+			return nil, fmt.Errorf("document repo: scan owner class: %w", err)
+		}
+		classes = append(classes, oc)
+	}
+	return classes, rows.Err()
 }
