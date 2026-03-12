@@ -69,12 +69,17 @@ func (c SQLServerConfig) ConnectionString() string {
 }
 
 type PostgreSQLConfig struct {
-	Host     string
-	Port     int
-	Database string
-	User     string
-	Password string
-	SSLMode  string
+	Host              string
+	Port              int
+	Database          string
+	User              string
+	Password          string
+	SSLMode           string
+	MaxConns          int32
+	MinConns          int32
+	MaxConnLifetime   time.Duration
+	MaxConnIdleTime   time.Duration
+	HealthCheckPeriod time.Duration
 }
 
 func (c PostgreSQLConfig) ConnectionString() string {
@@ -83,11 +88,13 @@ func (c PostgreSQLConfig) ConnectionString() string {
 }
 
 type MinIOConfig struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	Bucket    string
-	UseSSL    bool
+	Endpoint           string
+	AccessKey          string
+	SecretKey          string
+	Bucket             string
+	UseSSL             bool
+	MultipartThreshold int64  // default 5MB
+	PartSize           uint64 // default 16MB
 }
 
 type SyncConfig struct {
@@ -110,19 +117,26 @@ func Load() (*Config, error) {
 			Password: getEnv("SQLSERVER_PASSWORD", ""),
 		},
 		PostgreSQL: PostgreSQLConfig{
-			Host:     getEnv("POSTGRES_HOST", "localhost"),
-			Port:     getEnvInt("POSTGRES_PORT", 5432),
-			Database: getEnv("POSTGRES_DATABASE", "ibs_doc_engine"),
-			User:     getEnv("POSTGRES_USER", "postgres"),
-			Password: getEnv("POSTGRES_PASSWORD", ""),
-			SSLMode:  getEnv("POSTGRES_SSLMODE", "disable"),
+			Host:              getEnv("POSTGRES_HOST", "localhost"),
+			Port:              getEnvInt("POSTGRES_PORT", 5432),
+			Database:          getEnv("POSTGRES_DATABASE", "ibs_doc_engine"),
+			User:              getEnv("POSTGRES_USER", "postgres"),
+			Password:          getEnv("POSTGRES_PASSWORD", ""),
+			SSLMode:           getEnv("POSTGRES_SSLMODE", "disable"),
+			MaxConns:          int32(getEnvInt("POSTGRES_MAX_CONNS", 20)),
+			MinConns:          int32(getEnvInt("POSTGRES_MIN_CONNS", 5)),
+			MaxConnLifetime:   getEnvDuration("POSTGRES_MAX_CONN_LIFETIME", 1*time.Hour),
+			MaxConnIdleTime:   getEnvDuration("POSTGRES_MAX_CONN_IDLE_TIME", 30*time.Minute),
+			HealthCheckPeriod: getEnvDuration("POSTGRES_HEALTH_CHECK_PERIOD", 1*time.Minute),
 		},
 		MinIO: MinIOConfig{
-			Endpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
-			AccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-			SecretKey: getEnv("MINIO_SECRET_KEY", "minioadmin"),
-			Bucket:    getEnv("MINIO_BUCKET", "ibs-documents"),
-			UseSSL:    getEnvBool("MINIO_USE_SSL", false),
+			Endpoint:           getEnv("MINIO_ENDPOINT", "localhost:9000"),
+			AccessKey:          getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+			SecretKey:          getEnv("MINIO_SECRET_KEY", "minioadmin"),
+			Bucket:             getEnv("MINIO_BUCKET", "ibs-documents"),
+			UseSSL:             getEnvBool("MINIO_USE_SSL", false),
+			MultipartThreshold: int64(getEnvInt("MINIO_MULTIPART_THRESHOLD", 5*1024*1024)),
+			PartSize:           uint64(getEnvInt("MINIO_PART_SIZE", 16*1024*1024)),
 		},
 		Sync: SyncConfig{
 			PollInterval: getEnvDuration("SYNC_POLL_INTERVAL", 30*time.Second),

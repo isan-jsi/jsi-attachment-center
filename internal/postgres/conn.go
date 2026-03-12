@@ -9,7 +9,17 @@ import (
 )
 
 func NewPool(ctx context.Context, cfg config.PostgreSQLConfig) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, cfg.ConnectionString())
+	poolCfg, err := pgxpool.ParseConfig(cfg.ConnectionString())
+	if err != nil {
+		return nil, fmt.Errorf("postgres: parse config: %w", err)
+	}
+	poolCfg.MaxConns = cfg.MaxConns
+	poolCfg.MinConns = cfg.MinConns
+	poolCfg.MaxConnLifetime = cfg.MaxConnLifetime
+	poolCfg.MaxConnIdleTime = cfg.MaxConnIdleTime
+	poolCfg.HealthCheckPeriod = cfg.HealthCheckPeriod
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return nil, fmt.Errorf("postgres: new pool: %w", err)
 	}

@@ -12,8 +12,10 @@ import (
 )
 
 type Client struct {
-	mc     *miniogo.Client
-	bucket string
+	mc                 *miniogo.Client
+	bucket             string
+	multipartThreshold int64
+	partSize           uint64
 }
 
 func NewClient(cfg config.MinIOConfig) (*Client, error) {
@@ -25,7 +27,21 @@ func NewClient(cfg config.MinIOConfig) (*Client, error) {
 		return nil, fmt.Errorf("minio: new client: %w", err)
 	}
 
-	return &Client{mc: mc, bucket: cfg.Bucket}, nil
+	multipartThreshold := cfg.MultipartThreshold
+	if multipartThreshold <= 0 {
+		multipartThreshold = 5 * 1024 * 1024
+	}
+	partSize := cfg.PartSize
+	if partSize <= 0 {
+		partSize = 16 * 1024 * 1024
+	}
+
+	return &Client{
+		mc:                 mc,
+		bucket:             cfg.Bucket,
+		multipartThreshold: multipartThreshold,
+		partSize:           partSize,
+	}, nil
 }
 
 // EnsureBucket creates the bucket if it doesn't exist.

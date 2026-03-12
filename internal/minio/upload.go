@@ -22,6 +22,7 @@ type UploadResult struct {
 }
 
 // Upload streams file data to MinIO with metadata tags.
+// For files larger than the configured multipartThreshold, multipart upload is used.
 func (c *Client) Upload(ctx context.Context, key string, data []byte, contentType string, metadata map[string]string) (*UploadResult, error) {
 	hash := ComputeSHA256(data)
 
@@ -30,11 +31,19 @@ func (c *Client) Upload(ctx context.Context, key string, data []byte, contentTyp
 	}
 	metadata["sha256"] = hash
 
-	reader := bytes.NewReader(data)
-	info, err := c.mc.PutObject(ctx, c.bucket, key, reader, int64(len(data)), miniogo.PutObjectOptions{
+	size := int64(len(data))
+	opts := miniogo.PutObjectOptions{
 		ContentType:  contentType,
 		UserMetadata: metadata,
-	})
+	}
+
+	if size > c.multipartThreshold {
+		opts.PartSize = c.partSize
+		slog.Debug("minio: using multipart upload", "key", key, "size", size, "partSize", c.partSize)
+	}
+
+	reader := bytes.NewReader(data)
+	info, err := c.mc.PutObject(ctx, c.bucket, key, reader, size, opts)
 	if err != nil {
 		return nil, fmt.Errorf("minio: upload %s: %w", key, err)
 	}
