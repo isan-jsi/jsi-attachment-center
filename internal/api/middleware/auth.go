@@ -57,6 +57,7 @@ type APIKeyQuerier interface {
 type AuthConfig struct {
 	JWTPublicKeyPEM string // path to PEM file or raw PEM string
 	APIKeyRepo      APIKeyQuerier
+	OIDCVerifier    *OIDCVerifier // optional; enables OIDC as a fallback for Bearer tokens
 }
 
 // Auth returns middleware that validates JWT Bearer tokens or X-API-Key headers.
@@ -72,16 +73,29 @@ func Auth(cfg AuthConfig) func(http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Try JWT first
+			// Try Bearer token: JWT first, then OIDC if configured.
 			if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
 				tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-				user, err := validateJWT(tokenStr, pubKey)
-				if err != nil {
-					jsonError(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired JWT")
+
+				// Attempt RS256 JWT validation.
+				user, jwtErr := validateJWT(tokenStr, pubKey)
+				if jwtErr == nil {
+					ctx := context.WithValue(r.Context(), AuthUserKey, user)
+					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
-				ctx := context.WithValue(r.Context(), AuthUserKey, user)
-				next.ServeHTTP(w, r.WithContext(ctx))
+
+				// JWT failed — try OIDC if a verifier is configured.
+				if cfg.OIDCVerifier != nil {
+					user, oidcErr := cfg.OIDCVerifier.Verify(r.Context(), tokenStr)
+					if oidcErr == nil {
+						ctx := context.WithValue(r.Context(), AuthUserKey, user)
+						next.ServeHTTP(w, r.WithContext(ctx))
+						return
+					}
+				}
+
+				jsonError(w, http.StatusUnauthorized, "INVALID_TOKEN", "invalid or expired token")
 				return
 			}
 

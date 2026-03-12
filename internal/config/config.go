@@ -17,6 +17,14 @@ type Config struct {
 	API            APIConfig
 	Log            LogConfig
 	NATS           NATSConfig
+	OIDC           OIDCConfig
+}
+
+// OIDCConfig holds OpenID Connect provider configuration.
+type OIDCConfig struct {
+	Enabled   bool
+	IssuerURL string
+	ClientID  string
 }
 
 type NATSConfig struct {
@@ -135,6 +143,11 @@ func Load() (*Config, error) {
 			URL:        getEnv("NATS_URL", "nats://localhost:4222"),
 			StreamName: getEnv("NATS_STREAM", "IBSDOCS"),
 			Subjects:   []string{"document.>", "sync.>"},
+		},
+		OIDC: OIDCConfig{
+			Enabled:   getEnvBool("OIDC_ENABLED", false),
+			IssuerURL: getEnv("OIDC_ISSUER_URL", ""),
+			ClientID:  getEnv("OIDC_CLIENT_ID", ""),
 		},
 	}
 
