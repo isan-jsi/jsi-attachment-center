@@ -1,0 +1,1160 @@
+openapi: 3.0.3
+info:
+  title: IBS Document Sync Engine API
+  description: |
+    REST API for the IBS Document Sync Engine. Manages documents, folders, owners,
+    sync status/DLQ, and API key administration. All /api/v1 routes require
+    authentication via Bearer JWT (OIDC) or X-API-Key header.
+  version: 1.0.0
+  contact:
+    name: IBS Document Engine Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OIDC-issued JWT token
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Static API key generated via /api/v1/api-keys
+
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, service, timestamp]
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: api-gateway
+        timestamp:
+          type: string
+          format: date-time
+
+    Document:
+      type: object
+      required: [id, filename, content_type, file_size, owner_id, owner_class_library, owner_class_name, current_version, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        minio_bucket:
+          type: string
+        minio_key:
+          type: string
+        filename:
+          type: string
+          example: contract.pdf
+        content_type:
+          type: string
+          example: application/pdf
+        file_size:
+          type: integer
+          format: int64
+          example: 102400
+        sha256_hash:
+          type: string
+        owner_id:
+          type: string
+          example: "12345"
+        owner_class_library:
+          type: string
+          example: IBS
+        owner_class_name:
+          type: string
+          example: Contract
+        attachment_type_id:
+          type: integer
+        attachment_type:
+          type: string
+        is_external:
+          type: boolean
+        legacy_file_id:
+          type: string
+        current_version:
+          type: integer
+          example: 1
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateDocumentRequest:
+      type: object
+      description: Multipart form data for document upload
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: File content to upload
+        filename:
+          type: string
+          description: Override filename (defaults to uploaded filename)
+        owner_id:
+          type: string
+        owner_class_library:
+          type: string
+        owner_class_name:
+          type: string
+        attachment_type:
+          type: string
+        attachment_type_id:
+          type: integer
+
+    UpdateDocumentRequest:
+      type: object
+      properties:
+        filename:
+          type: string
+        content_type:
+          type: string
+        owner_id:
+          type: string
+        owner_class_library:
+          type: string
+        owner_class_name:
+          type: string
+        attachment_type_id:
+          type: integer
+        attachment_type:
+          type: string
+
+    Folder:
+      type: object
+      required: [id, name, path, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Contracts
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        path:
+          type: string
+          example: /Contracts
+        owner_class_library:
+          type: string
+        owner_class_name:
+          type: string
+        owner_id:
+          type: string
+        is_auto_generated:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    FolderDetail:
+      type: object
+      required: [folder, children, documents]
+      properties:
+        folder:
+          $ref: '#/components/schemas/Folder'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Folder'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+
+    CreateFolderRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: Contracts
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        path:
+          type: string
+        owner_class_library:
+          type: string
+        owner_class_name:
+          type: string
+        owner_id:
+          type: string
+
+    UpdateFolderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        path:
+          type: string
+
+    SyncCheckpoint:
+      type: object
+      properties:
+        table_name:
+          type: string
+        owner_class_key:
+          type: string
+        last_dc_check:
+          type: string
+          format: byte
+          description: Binary DC check value (base64-encoded)
+        last_sync_at:
+          type: string
+          format: date-time
+        records_processed:
+          type: integer
+          format: int64
+        status:
+          type: string
+
+    SyncStatus:
+      type: object
+      required: [checkpoints, dlq_pending, dlq_exhausted, dlq_total]
+      properties:
+        checkpoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncCheckpoint'
+        dlq_pending:
+          type: integer
+          format: int64
+        dlq_exhausted:
+          type: integer
+          format: int64
+        dlq_total:
+          type: integer
+          format: int64
+
+    DLQEntry:
+      type: object
+      required: [id, legacy_owner_id, legacy_file_id, table_name, retry_count, max_retries, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        legacy_owner_id:
+          type: string
+        legacy_file_id:
+          type: string
+        table_name:
+          type: string
+        retry_count:
+          type: integer
+        max_retries:
+          type: integer
+        next_retry_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+        payload_json:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [pending, retrying, exhausted, resolved]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    APIKey:
+      type: object
+      required: [id, key_prefix, name, owner_id, permissions, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key_hash:
+          type: string
+          description: SHA-256 hash of the raw key (never returned to client)
+        key_prefix:
+          type: string
+          example: "sk_abc123"
+          description: First few characters of the raw key for identification
+        name:
+          type: string
+          example: CI/CD Pipeline Key
+        owner_id:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["documents:read", "documents:write"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    APIKeyCreateResult:
+      type: object
+      description: Returned once on key creation; plaintext key is never shown again
+      required: [api_key, key]
+      properties:
+        api_key:
+          $ref: '#/components/schemas/APIKey'
+        key:
+          type: string
+          description: Full plaintext API key — store immediately, shown only once
+          example: sk_abc123def456...
+
+    CreateAPIKeyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: CI/CD Pipeline Key
+        permissions:
+          type: array
+          items:
+            type: string
+          example: ["documents:read"]
+        expires_in:
+          type: integer
+          description: Seconds until expiry; omit for no expiry
+          nullable: true
+          example: 86400
+
+    UpdateAPIKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        expires_in:
+          type: integer
+          description: Seconds from now to new expiry; omit to leave unchanged
+          nullable: true
+
+    OwnerClass:
+      type: object
+      properties:
+        owner_class_library:
+          type: string
+        owner_class_name:
+          type: string
+        owner_class_description:
+          type: string
+
+    Meta:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+          format: int64
+        total_pages:
+          type: integer
+        request_id:
+          type: string
+
+    Envelope:
+      type: object
+      properties:
+        data:
+          description: Response payload (varies by endpoint)
+        meta:
+          $ref: '#/components/schemas/Meta'
+        error:
+          $ref: '#/components/schemas/ErrorResponse'
+
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: NOT_FOUND
+        message:
+          type: string
+          example: document not found
+        details:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request — invalid parameters or body
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: BAD_REQUEST
+              message: invalid JSON body
+
+    Unauthorized:
+      description: Missing or invalid authentication credentials
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: authentication required
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: NOT_FOUND
+              message: resource not found
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns service health status. No authentication required.
+      operationId: getHealth
+      security: []
+      tags: [Health]
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/v1/documents:
+    get:
+      summary: List documents
+      description: Returns a paginated list of documents, optionally filtered by owner.
+      operationId: listDocuments
+      tags: [Documents]
+      parameters:
+        - name: owner_class_library
+          in: query
+          schema:
+            type: string
+        - name: owner_class_name
+          in: query
+          schema:
+            type: string
+        - name: owner_id
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated document list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Document'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Upload a document
+      description: Uploads a new document via multipart/form-data.
+      operationId: createDocument
+      tags: [Documents]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+      responses:
+        '201':
+          description: Document created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Document'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/documents/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Document UUID
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      summary: Get document by ID
+      operationId: getDocument
+      tags: [Documents]
+      responses:
+        '200':
+          description: Document details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Document'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update document metadata
+      operationId: updateDocument
+      tags: [Documents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDocumentRequest'
+      responses:
+        '200':
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Document'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a document
+      description: Soft-deletes the document record.
+      operationId: deleteDocument
+      tags: [Documents]
+      responses:
+        '200':
+          description: Document deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/documents/{id}/download:
+    get:
+      summary: Download document
+      description: Redirects (307) to a presigned MinIO download URL valid for 15 minutes.
+      operationId: downloadDocument
+      tags: [Documents]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Document UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '307':
+          description: Temporary redirect to presigned download URL
+          headers:
+            Location:
+              description: Presigned download URL
+              schema:
+                type: string
+                format: uri
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/folders:
+    get:
+      summary: List root folders
+      description: Returns all top-level folders (no parent).
+      operationId: listFolders
+      tags: [Folders]
+      responses:
+        '200':
+          description: Root folder list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Folder'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create a folder
+      operationId: createFolder
+      tags: [Folders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFolderRequest'
+      responses:
+        '201':
+          description: Folder created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Folder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/folders/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Folder UUID
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      summary: Get folder by ID
+      description: Returns the folder with its immediate children and linked documents.
+      operationId: getFolder
+      tags: [Folders]
+      responses:
+        '200':
+          description: Folder detail with children and documents
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FolderDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update a folder
+      operationId: updateFolder
+      tags: [Folders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFolderRequest'
+      responses:
+        '200':
+          description: Updated folder
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Folder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete a folder
+      operationId: deleteFolder
+      tags: [Folders]
+      parameters:
+        - name: cascade
+          in: query
+          description: If true, recursively delete children and unlink documents
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Folder deleted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/search:
+    get:
+      summary: Full-text document search
+      description: Search documents by filename, owner class, content type, and date range.
+      operationId: searchDocuments
+      tags: [Search]
+      parameters:
+        - name: q
+          in: query
+          description: Search query string
+          schema:
+            type: string
+        - name: owner_class
+          in: query
+          schema:
+            type: string
+        - name: content_type
+          in: query
+          schema:
+            type: string
+        - name: date_from
+          in: query
+          description: ISO 8601 start date filter
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          description: ISO 8601 end date filter
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Document'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/owners:
+    get:
+      summary: List owner classes
+      description: Returns all distinct owner class combinations.
+      operationId: listOwnerClasses
+      tags: [Owners]
+      responses:
+        '200':
+          description: List of owner classes
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OwnerClass'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/owners/{class}/documents:
+    get:
+      summary: List documents by owner class
+      description: Returns a paginated list of documents belonging to the given owner class.
+      operationId: listDocumentsByOwnerClass
+      tags: [Owners]
+      parameters:
+        - name: class
+          in: path
+          required: true
+          description: Owner class name
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated document list for the owner class
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Document'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/sync/status:
+    get:
+      summary: Get sync status
+      description: Returns sync checkpoints and DLQ counters.
+      operationId: getSyncStatus
+      tags: [Sync]
+      responses:
+        '200':
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SyncStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/sync/dlq:
+    get:
+      summary: List DLQ entries
+      description: Returns paginated dead-letter queue entries.
+      operationId: listDLQ
+      tags: [Sync]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated DLQ entries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DLQEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/sync/dlq/{id}/retry:
+    post:
+      summary: Retry a DLQ entry
+      description: Resets a DLQ entry to pending status for immediate retry.
+      operationId: retryDLQEntry
+      tags: [Sync]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: DLQ entry UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Retry scheduled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: retry_scheduled
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/api-keys:
+    get:
+      summary: List API keys
+      description: Returns all active API keys owned by the authenticated user.
+      operationId: listAPIKeys
+      tags: [API Keys]
+      responses:
+        '200':
+          description: List of API keys
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/APIKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create an API key
+      description: |
+        Creates a new API key. The full plaintext key is returned **only once** in
+        the response — store it immediately.
+      operationId: createAPIKey
+      tags: [API Keys]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAPIKeyRequest'
+      responses:
+        '201':
+          description: API key created — includes one-time plaintext key
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/APIKeyCreateResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/api-keys/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: API key UUID
+        schema:
+          type: string
+          format: uuid
+
+    put:
+      summary: Update an API key
+      description: Updates name, permissions, or expiry of an existing API key.
+      operationId: updateAPIKey
+      tags: [API Keys]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAPIKeyRequest'
+      responses:
+        '204':
+          description: API key updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Revoke an API key
+      description: Permanently revokes the API key (204 No Content).
+      operationId: revokeAPIKey
+      tags: [API Keys]
+      responses:
+        '204':
+          description: API key revoked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Documents
+    description: Document upload, retrieval, and management
+  - name: Folders
+    description: Folder hierarchy management
+  - name: Search
+    description: Full-text and filtered document search
+  - name: Owners
+    description: Owner class enumeration and document listing
+  - name: Sync
+    description: Sync engine status and dead-letter queue management
+  - name: API Keys
+    description: API key lifecycle management

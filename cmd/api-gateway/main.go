@@ -97,6 +97,10 @@ func run() error {
 		APIKeyRepo:      apiKeyRepo,
 	})
 
+	// Public API documentation routes (no auth required)
+	r.Get("/api/docs", api.SwaggerUIHTML("/api/docs/openapi.yaml"))
+	r.Get("/api/docs/openapi.yaml", api.ServeOpenAPISpec())
+
 	// Mount API v1 routes
 	r.Route("/api/v1", func(sub chi.Router) {
 		sub.Use(authMiddleware)
