@@ -95,11 +95,12 @@ func run() error {
 	folderRepo := postgres.NewFolderRepo(pool)
 	syncRepo := postgres.NewSyncRepo(pool)
 	apiKeyRepo := postgres.NewAPIKeyRepo(pool)
+	searchRepo := postgres.NewSearchRepo(pool)
 
 	// Handlers
 	docHandler := handlers.NewDocumentHandler(docRepo, mc)
 	folderHandler := handlers.NewFolderHandler(folderRepo)
-	searchHandler := handlers.NewSearchHandler(docRepo)
+	searchHandler := handlers.NewSearchHandler(docRepo, searchRepo)
 	ownerHandler := handlers.NewOwnerHandler(docRepo)
 	syncHandler := handlers.NewSyncHandler(syncRepo)
 	apiKeyHandler := handlers.NewAPIKeyHandler(apiKeyRepo)
