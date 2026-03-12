@@ -16,6 +16,7 @@ import (
 	"github.com/jsi/ibs-doc-engine/internal/api/handlers"
 	mw "github.com/jsi/ibs-doc-engine/internal/api/middleware"
 	"github.com/jsi/ibs-doc-engine/internal/config"
+	"github.com/jsi/ibs-doc-engine/internal/events"
 	minioclient "github.com/jsi/ibs-doc-engine/internal/minio"
 	"github.com/jsi/ibs-doc-engine/internal/postgres"
 )
@@ -68,6 +69,27 @@ func run() error {
 	}
 	slog.Info("connected to MinIO")
 
+	// Wire NATS event bus with graceful fallback to NoopEventBus.
+	var bus events.EventBus
+	natsbus, natsErr := events.NewNATSEventBus(cfg.NATS.URL, cfg.NATS.StreamName, cfg.NATS.Subjects)
+	if natsErr != nil {
+		slog.Warn("NATS unavailable, using noop event bus", "error", natsErr)
+		bus = events.NewNoopEventBus()
+	} else {
+		bus = natsbus
+		defer bus.Close()
+	}
+	_ = bus // bus is available for handlers that accept an EventBus
+
+	// Wire OIDC verifier if enabled.
+	var oidcVerifier *mw.OIDCVerifier
+	if cfg.OIDC.Enabled && cfg.OIDC.IssuerURL != "" {
+		oidcVerifier, err = mw.NewOIDCVerifier(ctx, cfg.OIDC.IssuerURL, cfg.OIDC.ClientID)
+		if err != nil {
+			slog.Warn("OIDC initialization failed", "error", err)
+		}
+	}
+
 	// Repos
 	docRepo := postgres.NewDocumentRepo(pool)
 	folderRepo := postgres.NewFolderRepo(pool)
@@ -91,10 +113,15 @@ func run() error {
 		CORSAllowedOrigins: corsOrigins,
 	})
 
+	// Rate limiter — applied globally before auth.
+	rl := mw.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
+	r.Use(rl.Middleware())
+
 	// Auth middleware
 	authMiddleware := mw.Auth(mw.AuthConfig{
 		JWTPublicKeyPEM: cfg.API.JWTPublicKeyPEM,
 		APIKeyRepo:      apiKeyRepo,
+		OIDCVerifier:    oidcVerifier,
 	})
 
 	// Public API documentation routes (no auth required)

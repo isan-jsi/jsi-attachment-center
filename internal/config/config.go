@@ -18,6 +18,12 @@ type Config struct {
 	Log            LogConfig
 	NATS           NATSConfig
 	OIDC           OIDCConfig
+	RateLimit      RateLimitConfig
+}
+
+type RateLimitConfig struct {
+	RequestsPerSecond float64
+	Burst             int
 }
 
 // OIDCConfig holds OpenID Connect provider configuration.
@@ -149,6 +155,10 @@ func Load() (*Config, error) {
 			IssuerURL: getEnv("OIDC_ISSUER_URL", ""),
 			ClientID:  getEnv("OIDC_CLIENT_ID", ""),
 		},
+		RateLimit: RateLimitConfig{
+			RequestsPerSecond: getEnvFloat("RATE_LIMIT_RPS", 10.0),
+			Burst:             getEnvInt("RATE_LIMIT_BURST", 20),
+		},
 	}
 
 	if cfg.PostgreSQL.Password == "" {
@@ -187,6 +197,15 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 	if v := os.Getenv(key); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			return d
+		}
+	}
+	return fallback
+}
+
+func getEnvFloat(key string, fallback float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
 		}
 	}
 	return fallback
