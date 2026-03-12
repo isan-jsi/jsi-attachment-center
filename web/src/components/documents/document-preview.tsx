@@ -59,6 +59,7 @@ export function DocumentPreview({
                   src={downloadUrl}
                   alt={doc.file_name}
                   className="max-h-64 w-full object-contain"
+                  loading="lazy"
                 />
               ) : doc.mime_type === "application/pdf" ? (
                 <iframe
