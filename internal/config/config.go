@@ -8,11 +8,30 @@ import (
 )
 
 type Config struct {
-	SQLServer  SQLServerConfig
-	PostgreSQL PostgreSQLConfig
-	MinIO      MinIOConfig
-	Sync       SyncConfig
-	Log        LogConfig
+	SQLServer      SQLServerConfig
+	PostgreSQL     PostgreSQLConfig
+	MinIO          MinIOConfig
+	Sync           SyncConfig
+	DLQRetry       DLQRetryConfig
+	Reconciliation ReconciliationConfig
+	API            APIConfig
+	Log            LogConfig
+}
+
+type APIConfig struct {
+	Port               int
+	JWTPublicKeyPEM    string
+	CORSAllowedOrigins string // comma-separated
+}
+
+type DLQRetryConfig struct {
+	Interval  time.Duration
+	BatchSize int
+}
+
+type ReconciliationConfig struct {
+	Schedule time.Duration
+	Enabled  bool
 }
 
 type SQLServerConfig struct {
@@ -89,14 +108,24 @@ func Load() (*Config, error) {
 			BatchSize:    getEnvInt("SYNC_BATCH_SIZE", 100),
 			Workers:      getEnvInt("SYNC_WORKERS", 10),
 		},
+		DLQRetry: DLQRetryConfig{
+			Interval:  getEnvDuration("DLQ_RETRY_INTERVAL", 5*time.Minute),
+			BatchSize: getEnvInt("DLQ_RETRY_BATCH_SIZE", 20),
+		},
+		Reconciliation: ReconciliationConfig{
+			Schedule: getEnvDuration("RECONCILIATION_SCHEDULE", 24*time.Hour),
+			Enabled:  getEnvBool("RECONCILIATION_ENABLED", true),
+		},
+		API: APIConfig{
+			Port:               getEnvInt("API_PORT", 8080),
+			JWTPublicKeyPEM:    getEnv("JWT_PUBLIC_KEY_PEM", ""),
+			CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
+		},
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "info"),
 		},
 	}
 
-	if cfg.SQLServer.Password == "" {
-		return nil, fmt.Errorf("SQLSERVER_PASSWORD is required")
-	}
 	if cfg.PostgreSQL.Password == "" {
 		return nil, fmt.Errorf("POSTGRES_PASSWORD is required")
 	}
