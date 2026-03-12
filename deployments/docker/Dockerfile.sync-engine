@@ -10,5 +10,8 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=builder /bin/sync-engine /usr/local/bin/sync-engine
 
+RUN adduser -D -u 1001 appuser
+USER appuser
+
 EXPOSE 8081
 ENTRYPOINT ["sync-engine"]
