@@ -110,13 +110,11 @@ func run() error {
 	if cfg.API.CORSAllowedOrigins != "" {
 		corsOrigins = strings.Split(cfg.API.CORSAllowedOrigins, ",")
 	}
+	rl := mw.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
 	r := api.NewRouter(api.RouterConfig{
 		CORSAllowedOrigins: corsOrigins,
+		RateLimiter:        rl.Middleware(),
 	})
-
-	// Rate limiter — applied globally before auth.
-	rl := mw.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
-	r.Use(rl.Middleware())
 
 	// Auth middleware
 	authMiddleware := mw.Auth(mw.AuthConfig{

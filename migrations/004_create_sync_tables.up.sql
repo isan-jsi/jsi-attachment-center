@@ -7,7 +7,7 @@ CREATE TABLE sync_checkpoints (
 );
 
 CREATE TABLE sync_log (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id              UUID DEFAULT gen_random_uuid(),
     document_id     UUID,
     legacy_owner_id VARCHAR(32),
     legacy_file_id  VARCHAR(32),
@@ -15,7 +15,8 @@ CREATE TABLE sync_log (
     status          VARCHAR(20) NOT NULL CHECK (status IN ('success', 'failed', 'retrying', 'dlq')),
     error_message   TEXT,
     duration_ms     INT,
-    synced_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    synced_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id, synced_at)
 ) PARTITION BY RANGE (synced_at);
 
 -- Create initial partition for current month
