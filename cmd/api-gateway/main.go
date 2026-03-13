@@ -104,6 +104,11 @@ func run() error {
 	ownerHandler := handlers.NewOwnerHandler(docRepo)
 	syncHandler := handlers.NewSyncHandler(syncRepo)
 	apiKeyHandler := handlers.NewAPIKeyHandler(apiKeyRepo)
+	authHandler := handlers.NewAuthHandler(handlers.AuthConfig{
+		AdminUsername: cfg.Auth.AdminUsername,
+		AdminPassword: cfg.Auth.AdminPassword,
+		AdminAPIKey:   cfg.Auth.AdminAPIKey,
+	})
 
 	// Router
 	var corsOrigins []string
@@ -123,9 +128,10 @@ func run() error {
 		OIDCVerifier:    oidcVerifier,
 	})
 
-	// Public API documentation routes (no auth required)
+	// Public routes (no auth required)
 	r.Get("/api/docs", api.SwaggerUIHTML("/api/docs/openapi.yaml"))
 	r.Get("/api/docs/openapi.yaml", api.ServeOpenAPISpec())
+	r.Mount("/api/v1/auth", authHandler.Routes())
 
 	// Mount API v1 routes
 	r.Route("/api/v1", func(sub chi.Router) {

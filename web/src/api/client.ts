@@ -26,7 +26,7 @@ async function request<T>(
   const headers = new Headers(init?.headers);
 
   if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+    headers.set("X-API-Key", token);
   }
 
   if (!headers.has("Content-Type") && !(init?.body instanceof FormData)) {

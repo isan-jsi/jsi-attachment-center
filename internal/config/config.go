@@ -19,6 +19,13 @@ type Config struct {
 	NATS           NATSConfig
 	OIDC           OIDCConfig
 	RateLimit      RateLimitConfig
+	Auth           AuthConfig
+}
+
+type AuthConfig struct {
+	AdminUsername string
+	AdminPassword string
+	AdminAPIKey   string
 }
 
 type RateLimitConfig struct {
@@ -172,6 +179,11 @@ func Load() (*Config, error) {
 		RateLimit: RateLimitConfig{
 			RequestsPerSecond: getEnvFloat("RATE_LIMIT_RPS", 10.0),
 			Burst:             getEnvInt("RATE_LIMIT_BURST", 20),
+		},
+		Auth: AuthConfig{
+			AdminUsername: getEnv("AUTH_ADMIN_USERNAME", "admin"),
+			AdminPassword: getEnv("AUTH_ADMIN_PASSWORD", "admin"),
+			AdminAPIKey:   getEnv("AUTH_ADMIN_API_KEY", "test-api-key-12345"),
 		},
 	}
 
